@@ -8,4 +8,5 @@ Designed and simulated a secure cloud architecture using AWS. Implemented Zero T
 AWS VPC, IAM Policies, EC2, CloudTrail, GuardDuty, Terraform, Subnetting, Security Groups
 
 •	Start Date: Oct 1, 2025
+
 •	End Date: Oct 30, 2025
