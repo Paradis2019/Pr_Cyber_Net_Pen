@@ -1,26 +1,39 @@
 # laptop_inventory.py
 """
-Simple Laptop Inventory App
+Simple Laptop Inventory App (Flask + SQLite)
+- Persistent DB location: next to the exe when bundled, or next to script while developing.
+- Auto-opens browser when run.
 Run: python laptop_inventory.py
-Open: http://127.0.0.1:5000/
-Requires: Python 3.8+, Flask
 """
 
-from flask import Flask, g, render_template_string, request, redirect, url_for, send_file, jsonify
+import os
+import sys
 import sqlite3
 from datetime import datetime
+from threading import Timer
+import webbrowser
+from flask import Flask, g, render_template_string, request, redirect, url_for, send_file, jsonify
 import csv
 import io
-import os
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "inventory.db")
+# ---------- Paths ----------
+if getattr(sys, "frozen", False):
+    # running as bundled exe
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    BASE_DIR = os.path.dirname(__file__)
+
+DB_PATH = os.path.join(BASE_DIR, "inventory.db")
+
+# ---------- App ----------
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'replace-this-in-production'
+app.config["SECRET_KEY"] = "change-this-secret-in-prod"
 
 # ---------- DB helpers ----------
 def get_db():
     db = getattr(g, "_database", None)
     if db is None:
+        os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
         db = g._database = sqlite3.connect(DB_PATH)
         db.row_factory = sqlite3.Row
     return db
@@ -55,7 +68,7 @@ def close_db(exception):
     if db is not None:
         db.close()
 
-# ---------- Templates (simple, inline) ----------
+# ---------- Templates ----------
 BASE_HTML = """
 <!doctype html>
 <html>
@@ -72,6 +85,8 @@ BASE_HTML = """
     .controls{margin-bottom:12px}
     a.button, button{background:#0366d6;color:#fff;padding:6px 10px;border:none;border-radius:6px;text-decoration:none;cursor:pointer}
     a.button.secondary{background:#6c757d}
+    input[type=text], input[type=number], textarea, select { width: 320px; padding:6px; margin:4px 0; }
+    label { display:block; margin:6px 0; }
   </style>
 </head>
 <body>
@@ -146,16 +161,16 @@ FORM_HTML = """
 {% block body %}
 <h2>{{ 'Edit' if item else 'Add' }} Laptop</h2>
 <form method="post">
-  <label>SKU: <input name="sku" value="{{ item.sku if item else '' }}" required></label><br><br>
-  <label>Brand: <input name="brand" value="{{ item.brand if item else '' }}"></label><br>
-  <label>Model: <input name="model" value="{{ item.model if item else '' }}"></label><br>
-  <label>Serial: <input name="serial" value="{{ item.serial if item else '' }}"></label><br>
-  <label>CPU: <input name="cpu" value="{{ item.cpu if item else '' }}"></label><br>
-  <label>RAM (GB): <input type="number" name="ram_gb" value="{{ item.ram_gb if item else '' }}"></label><br>
-  <label>Storage: <input name="storage" value="{{ item.storage if item else '' }}"></label><br>
-  <label>Initial price: <input type="number" step="0.01" name="initial_price" value="{{ item.initial_price if item else '' }}"></label><br>
-  <label>Selling price: <input type="number" step="0.01" name="selling_price" value="{{ item.selling_price if item else '' }}"></label><br>
-  <label>Location: <input name="location" value="{{ item.location if item else '' }}"></label><br>
+  <label>SKU: <input name="sku" value="{{ item.sku if item else '' }}" required></label>
+  <label>Brand: <input name="brand" value="{{ item.brand if item else '' }}"></label>
+  <label>Model: <input name="model" value="{{ item.model if item else '' }}"></label>
+  <label>Serial: <input name="serial" value="{{ item.serial if item else '' }}"></label>
+  <label>CPU: <input name="cpu" value="{{ item.cpu if item else '' }}"></label>
+  <label>RAM (GB): <input type="number" name="ram_gb" value="{{ item.ram_gb if item else '' }}"></label>
+  <label>Storage: <input name="storage" value="{{ item.storage if item else '' }}"></label>
+  <label>Initial price: <input type="number" step="0.01" name="initial_price" value="{{ item.initial_price if item else '' }}"></label>
+  <label>Selling price: <input type="number" step="0.01" name="selling_price" value="{{ item.selling_price if item else '' }}"></label>
+  <label>Location: <input name="location" value="{{ item.location if item else '' }}"></label>
   <label>Status:
     <select name="status">
       <option value="in_stock" {% if item and item.status=='in_stock' %}selected{% endif %}>in_stock</option>
@@ -163,7 +178,7 @@ FORM_HTML = """
       <option value="reserved" {% if item and item.status=='reserved' %}selected{% endif %}>reserved</option>
       <option value="out_for_repair" {% if item and item.status=='out_for_repair' %}selected{% endif %}>out_for_repair</option>
     </select>
-  </label><br>
+  </label>
   <label>Notes:<br><textarea name="notes" rows="3" cols="60">{{ item.notes if item else '' }}</textarea></label><br><br>
   <button type="submit">Save</button>
   <a href="{{ url_for('index') }}" class="button secondary">Cancel</a>
@@ -181,8 +196,8 @@ app.jinja_loader.mapping = {
 # ---------- Routes ----------
 @app.route("/")
 def index():
-    q = request.args.get("q","").strip()
-    status = request.args.get("status","").strip()
+    q = request.args.get("q", "").strip()
+    status = request.args.get("status", "").strip()
     db = get_db()
     sql = "SELECT * FROM laptops"
     params = []
@@ -191,34 +206,33 @@ def index():
         where.append("status = ?")
         params.append(status)
     if q:
-        # search sku, brand, model, serial
         where.append("(sku LIKE ? OR brand LIKE ? OR model LIKE ? OR serial LIKE ?)")
         v = f"%{q}%"
-        params.extend([v,v,v,v])
+        params.extend([v, v, v, v])
     if where:
         sql += " WHERE " + " AND ".join(where)
     sql += " ORDER BY created_at DESC LIMIT 1000"
     items = db.execute(sql, params).fetchall()
     return render_template_string(app.jinja_loader.get_source(app.jinja_env, "index.html")[0], items=items, q=q, qstatus=status)
 
-@app.route("/add", methods=["GET","POST"])
+@app.route("/add", methods=["GET", "POST"])
 def add():
     db = get_db()
     if request.method == "POST":
         data = dict(
-            sku = request.form.get("sku").strip(),
-            brand = request.form.get("brand").strip(),
-            model = request.form.get("model").strip(),
-            serial = request.form.get("serial").strip(),
-            cpu = request.form.get("cpu").strip(),
-            ram_gb = request.form.get("ram_gb") or None,
-            storage = request.form.get("storage").strip(),
-            initial_price = request.form.get("initial_price") or None,
-            selling_price = request.form.get("selling_price") or None,
-            location = request.form.get("location").strip(),
-            status = request.form.get("status") or "in_stock",
-            notes = request.form.get("notes").strip(),
-            date_received = datetime.utcnow().isoformat()
+            sku=request.form.get("sku").strip(),
+            brand=request.form.get("brand").strip(),
+            model=request.form.get("model").strip(),
+            serial=request.form.get("serial").strip(),
+            cpu=request.form.get("cpu").strip(),
+            ram_gb=request.form.get("ram_gb") or None,
+            storage=request.form.get("storage").strip(),
+            initial_price=request.form.get("initial_price") or None,
+            selling_price=request.form.get("selling_price") or None,
+            location=request.form.get("location").strip(),
+            status=request.form.get("status") or "in_stock",
+            notes=request.form.get("notes").strip(),
+            date_received=datetime.utcnow().isoformat()
         )
         db.execute("""
             INSERT INTO laptops (sku,brand,model,serial,cpu,ram_gb,storage,initial_price,selling_price,location,status,notes,date_received)
@@ -228,7 +242,7 @@ def add():
         return redirect(url_for("index"))
     return render_template_string(app.jinja_loader.get_source(app.jinja_env, "form.html")[0], item=None)
 
-@app.route("/edit/<int:item_id>", methods=["GET","POST"])
+@app.route("/edit/<int:item_id>", methods=["GET", "POST"])
 def edit(item_id):
     db = get_db()
     row = db.execute("SELECT * FROM laptops WHERE id = ?", (item_id,)).fetchone()
@@ -263,8 +277,8 @@ def toggle_out(item_id):
     row = db.execute("SELECT status FROM laptops WHERE id=?", (item_id,)).fetchone()
     if not row:
         return "Not found", 404
-    new_status = "in_stock" if row["status"]=="sold" else "sold"
-    date_sold = datetime.utcnow().isoformat() if new_status=="sold" else None
+    new_status = "in_stock" if row["status"] == "sold" else "sold"
+    date_sold = datetime.utcnow().isoformat() if new_status == "sold" else None
     db.execute("UPDATE laptops SET status=?, date_sold=? WHERE id=?", (new_status, date_sold, item_id))
     db.commit()
     return redirect(url_for("index"))
@@ -283,9 +297,10 @@ def export_csv():
     rows = db.execute("SELECT * FROM laptops ORDER BY created_at DESC").fetchall()
     si = io.StringIO()
     writer = csv.writer(si)
-    writer.writerow(["id","sku","brand","model","serial","cpu","ram_gb","storage","initial_price","selling_price","location","status","notes","date_received","date_sold","created_at"])
+    header = ["id","sku","brand","model","serial","cpu","ram_gb","storage","initial_price","selling_price","location","status","notes","date_received","date_sold","created_at"]
+    writer.writerow(header)
     for r in rows:
-        writer.writerow([r[k] for k in writer.fieldnames]) if False else writer.writerow([r['id'],r['sku'],r['brand'],r['model'],r['serial'],r['cpu'],r['ram_gb'],r['storage'],r['initial_price'],r['selling_price'],r['location'],r['status'],r['notes'],r['date_received'],r['date_sold'],r['created_at']])
+        writer.writerow([r[h] for h in header])
     mem = io.BytesIO()
     mem.write(si.getvalue().encode("utf-8"))
     mem.seek(0)
@@ -300,7 +315,6 @@ def api_items():
         return jsonify([dict(r) for r in rows])
     else:
         payload = request.json or {}
-        # minimal validation
         if "sku" not in payload:
             return jsonify({"error":"sku required"}), 400
         db.execute("""
@@ -324,7 +338,17 @@ def api_items():
         db.commit()
         return jsonify({"ok":True}), 201
 
+# ---------- Run ----------
 if __name__ == "__main__":
     with app.app_context():
         init_db()
-    app.run(debug=True)
+
+    host = "127.0.0.1"
+    port = 5000
+
+    def open_browser():
+        webbrowser.open(f"http://{host}:{port}/")
+
+    # open browser after short delay when running locally
+    Timer(1.0, open_browser).start()
+    app.run(host=host, port=port, debug=False)

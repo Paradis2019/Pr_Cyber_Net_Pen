@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block body %}
+
+<table>
+  <thead>
+    <tr>
+      <th>SKU</th>
+      <th>Brand</th>
+      <th>Model</th>
+      <th>Status</th>
+      <th>Initial $</th>
+      <th>Selling $</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in items %}
+    <tr>
+      <td>{{ r['sku'] }}</td>
+      <td>{{ r['brand'] }}</td>
+      <td>{{ r['model'] }}</td>
+      <td>{{ r['status'] }}</td>
+      <td>${{ r['initial_price'] }}</td>
+      <td>${{ r['selling_price'] }}</td>
+      <td>
+        <a href="{{ url_for('edit', item_id=r['id']) }}" style="color:#4cc9f0;">Edit</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}

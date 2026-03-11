@@ -1,0 +1,132 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Awaken Inventory System</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+
+    body {
+      margin:0;
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #0b0f2e, #0f1b55);
+      color: white;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 60px auto;
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(12px);
+      border-radius: 16px;
+      padding: 40px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+    }
+
+    h1 {
+      font-weight: 600;
+      margin-bottom: 30px;
+      background: linear-gradient(90deg,#4cc9f0,#9d4edd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .button {
+      background: linear-gradient(90deg,#4361ee,#7209b7);
+      border: none;
+      padding: 10px 20px;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      margin-right: 10px;
+      transition: 0.3s ease;
+    }
+
+    .button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+    }
+
+    .button.secondary {
+      background: #6c757d;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    th, td {
+      padding: 12px;
+      text-align: left;
+    }
+
+    th {
+      border-bottom: 2px solid rgba(255,255,255,0.2);
+      font-weight: 500;
+    }
+
+    tr:hover {
+      background: rgba(255,255,255,0.05);
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      background: rgba(255,255,255,0.08);
+      color: white;
+      margin-top: 4px;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      background: rgba(255,255,255,0.15);
+    }
+
+    label {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .full-width {
+      grid-column: span 2;
+    }
+
+    footer {
+      margin-top: 40px;
+      text-align: center;
+      font-size: 13px;
+      opacity: 0.6;
+    }
+
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Awaken Laptop Inventory</h1>
+  <div>
+    <a class="button" href="{{ url_for('add') }}">+ Add Laptop</a>
+    <a class="button secondary" href="{{ url_for('export_csv') }}">Export CSV</a>
+  </div>
+
+  {% block body %}{% endblock %}
+
+  <footer>
+    Awaken IT • Software • AI
+  </footer>
+
+</div>
+
+</body>
+</html>
